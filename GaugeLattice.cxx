@@ -3,7 +3,7 @@
 #include <math.h> 
 
 namespace { 
-
+    constexpr double pi = 3.14159265359; 
 }
 
 //____________________________________________________________________________________________________
@@ -13,9 +13,15 @@ template<int D> GaugeLattice<D>::GaugeLattice(int side_length, double beta, doub
     fBeta{beta}, 
     fMaxTheta{max_theta}
 {   
+    //initialize the random-index generator
+    fRint_site = std::uniform_int_distribution<int>{0, fSideLength-1};
+
+    //compute how many lattice sites we will have 
+    int n_connections_per_direction = (int)std::pow(fSideLength, D); 
+    
     //initialize the lattice 
     for (int i=0; i<D; i++) {
-        fSideLength[i] = std::vector<SU3::Element>{std::pow(side_length, D), SU3::Identity()}; 
+        fConnections[i] = std::vector<SU3::Element>(n_connections_per_direction, SU3::Identity()); 
     }
 }
 //____________________________________________________________________________________________________
@@ -23,7 +29,7 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
 {
     long long int n_accepted=0; 
     
-    for (long long int i_site=0; i<n_site_updates; i++) {
+    for (long long int i_site=0; i_site<n_site_updates; i_site++) {
         
         //pick a site to update
         Index ind = RandIndex(); 
@@ -31,7 +37,6 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
         auto& U = Site(ind);  
         //compute the product of all matrices traced with this one 
     }
-
     return 0.; 
 }
 //____________________________________________________________________________________________________

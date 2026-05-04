@@ -31,7 +31,8 @@ private:
     std::uniform_int_distribution<int> fRint_generator{0, SU3::n_generators-1};
     std::uniform_int_distribution<int> fRint_direction{0, D-1};
 
-    std::uniform_int_distribution<int> fRint_site;
+    std::uniform_int_distribution<int> fRint_site{};
+    inline int RandIdx() { return fRint_site(fTwister); }
 
     std::uniform_real_distribution<double> fRand_uniform{0., 1.};
     

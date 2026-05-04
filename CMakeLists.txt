@@ -31,6 +31,7 @@ find_package(ROOT 6.20 REQUIRED COMPONENTS Core RIO Physics)
 #   Define sources and headers
 set(sources 
     SU3.cxx
+    GaugeLattice.cxx
 )
 
 set(headers 
