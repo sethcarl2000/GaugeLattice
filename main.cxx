@@ -22,15 +22,13 @@ int main(int argc, char* argv[])
     SU3::Print( g ); 
 
 
-
-
     std::cout << "generators: (theta = pi/4)\n";
     std::cout << "--------------------------------------------------------------\n";
 
     for (int i=0; i<SU3::n_generators; i++) {
         auto ti = SU3::Generator(i, pi/4.); 
 
-        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~";
+        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
         std::cout << "generator t" << i << "\n";
         std::cout << "trace: " << PrintComplex( SU3::Trace(ti) ) << "\n";
         SU3::Print( ti ); 
