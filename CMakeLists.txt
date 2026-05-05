@@ -15,6 +15,10 @@ if (DEBUG)
 endif()
 
 #---------------------------------------------------------
+#   Define this preprocessor macro to enable (more expensive) range-checks 
+
+
+#---------------------------------------------------------
 #   Which include directories to use. 
 set(CMAKE_CXX_STANDARD
     20

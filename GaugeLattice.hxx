@@ -24,15 +24,17 @@ private:
     double fMaxTheta; 
 
     /// @brief array of all lattice-site connections 
-    std::vector<SU3::Element> fConnections[D];
+    std::array<std::vector<SU3::Element>, D> fConnections;
 
     //random number generators
-    std::mt19937 fTwister{std::random_device{}}; 
+    std::mt19937 fTwister{}; 
     std::uniform_int_distribution<int> fRint_generator{0, SU3::n_generators-1};
     std::uniform_int_distribution<int> fRint_direction{0, D-1};
 
     std::uniform_int_distribution<int> fRint_site{};
     inline int RandIdx() { return fRint_site(fTwister); }
+
+    inline int RandGeneratorIdx() { return fRint_generator(fTwister); }
 
     std::uniform_real_distribution<double> fRand_uniform{0., 1.};
     
@@ -40,8 +42,26 @@ private:
     inline double Rand() { return fRand_uniform(fTwister); }
     
     //indexes a connection
-    struct Index{ std::array<int,D> pos; int dir; };
+    struct Index{ 
+        std::array<int,D> pos; 
+        int dir; 
+    };
 
+    //this is a sneaky little trick here. this operator means that we will bump index 'i' up by one.  
+    
+    //bump position 'i' in this index up by one 
+    GaugeLattice<D>::Index next(GaugeLattice<D>::Index idx, int i) const {
+        ++idx.pos[i]; 
+        return idx; 
+    }
+
+    //bump position 'i' in this index down by one
+    GaugeLattice<D>::Index prev(GaugeLattice<D>::Index idx, int i) const {
+        --idx.pos[i]; 
+        return idx; 
+    }
+
+    
     //check to make sure our struct is trivially constructable and copyable (thanks, claude)
     static_assert(std::is_trivially_copyable_v<Index>, "<GaugeLattice<int D>> Index is not trivially copyable");
     static_assert(std::is_trivially_move_constructible_v<Index>, "<GaugeLattice<int D>> Index is not trivially move constructable");
@@ -53,19 +73,38 @@ private:
     /// @return connection on lattice indexed by 'ind'
     inline SU3::Element& Site(const GaugeLattice<D>::Index& ind) { 
         int idx=0;
-        for (auto i : ind.pos) idx += idx*i; 
+        for (auto i : ind.pos) {
+            //fix out-of-bounds indices
+            if (i<0) { i+=fSideLength; } else { if (i>=fSideLength) i-=fSideLength; }
+            idx = i + (fSideLength*idx);
+        } 
+        return fConnections[ind.dir][idx]; 
+    }
+
+    /// @return copy of connection on lattice indexed by 'ind'
+    inline SU3::Element SiteCpy(const GaugeLattice<D>::Index& ind) const {
+        int idx=0;
+        for (auto i : ind.pos) {
+            //fix out-of-bounds indices
+            if (i<0) { i+=fSideLength; } else { if (i>=fSideLength) i-=fSideLength; }
+            idx += i + (fSideLength*idx);
+        } 
         return fConnections[ind.dir][idx]; 
     }
 
 public: 
 
     GaugeLattice(int side_length, double beta=0., double max_theta=0.2*3.1415926535);
+
+    ~GaugeLattice() {
+        for (auto& vec : fConnections) vec.clear(); 
+    }
     
     /// @brief Perform metropolis update for each lattice site, randomly. 
     /// @param n_site_updates the number of individual sites to update 
     /// @param n_updates_per_site
     /// @return fraction of proposed updates accepted 
-    double MetropolisUpdate(long long int n_site_updates, int n_updates_per_site); 
+    double MetropolisUpdate(long long int n_site_updates, long long int n_updates_per_site); 
 
     /// set thermodynamic beta
     void SetBeta(double b) { fBeta=b; }
@@ -79,7 +118,6 @@ public:
     //print current lattice configuration 
     void Print() const; 
 
-    ClassDef(GaugeLattice,1);
 }; 
 
 #endif
