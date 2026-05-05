@@ -34,8 +34,9 @@ find_package(ROOT 6.20 REQUIRED COMPONENTS Core RIO Physics)
 #---------------------------------------------------------
 #   Define sources and headers
 set(sources 
-    SU3.cxx
     GaugeLattice.cxx
+    SU3.cxx
+    TreeWriter.cxx
 )
 
 set(headers
@@ -43,6 +44,7 @@ set(headers
     ComplexNum.hxx
     GaugeLattice.hxx
     SU3.hxx
+    TreeWriter.hxx
 )
 
 #---------------------------------------------------------

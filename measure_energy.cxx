@@ -2,6 +2,7 @@
 #include "GaugeLattice.cxx"
 #include "SU3.hxx"
 #include "numbers.hxx"
+#include "TreeWriter.hxx"
 
 #include "argparse.hpp"
 
@@ -34,14 +35,7 @@ int main(int argc, char* argv[])
         .store_into(path_output);
 
     //lattice dimension
-    /*int lattice_D;
-    program.add_argument("-D", "--dimension")
-        .help("Dimension of lattice to study")
-        .metavar("D")
-        .default_value(4)
-        .scan<'i', int>()
-        .nargs(1)
-        .store_into(lattice_D);*/ 
+    program.add_argument("-s", "--");
 
     // lattice size 
     int lattice_size; 
@@ -117,6 +111,9 @@ int main(int argc, char* argv[])
     }
     const bool cooling = (program.get<std::string>("--mode") == "cooling"); 
 
+    //it's not strictly necessary to define this bool, but it may make the code that follows more readable
+    const bool heating = !cooling; 
+
     std::printf(" D = %i, lattice size: %i, beta = [%.3f, %.3f] (%s). temp. steps: %i, updates per temp-step: %i\n", 
         D, 
         lattice_size, 
@@ -126,19 +123,27 @@ int main(int argc, char* argv[])
         n_steps, 
         n_updates_per_step
     );
-    return 0; 
-
-    using namespace std; 
+    
+    TreeWriter writer("data_tree", path_output); 
 
     //consturct a gauge lattice, and pick the appropriate dimension
     GaugeLattice<D> lattice(lattice_size); 
 
-    std::fstream outfile(path_output.c_str(), std::ios::out); 
+    double beta = cooling ? beta_min : beta_max; 
 
-    //randomly roatate matrices
-    const double beta = 1.; 
+    //change in beta between each step
+    const double dBeta = 
+        (cooling ? +1. : -1.)*
+        (beta_max - beta_min)/((double)n_steps-1); 
+
     lattice.SetBeta( beta );
 
+    if (cooling) {
+        lattice.HotStart(100); //start with random lattice sites (hot) 
+    } else {
+        lattice.ColdStart(); //start with each lattice site as the identity (cold)
+    }
+    //this lattice will help us track how much the overall lattice is changing by 
     auto old_lattice = lattice; 
 
     const double target_prob = 0.5;
@@ -146,39 +151,59 @@ int main(int argc, char* argv[])
     double theta = Nums::pi/8; 
     const double max_theta = Nums::pi; 
 
-    const long long int n_site_updates = 5e5;
+    int n_sites = std::pow(lattice_size, D); 
+
+    //number of updates to consider for each site, for each update step
     const long long int n_steps_per_site = 10; 
 
-    for (int i=0; i<1000; i++) {
+    for (int i=0; i<n_steps; i++) {
 
         lattice.SetMaxTheta(theta); 
+        lattice.SetBeta(beta); 
 
         TStopwatch timer; 
-        double accept_prob = lattice.MetropolisUpdate(n_site_updates, n_steps_per_site);
+        double accept_prob = lattice.MetropolisUpdate(n_updates_per_step, n_steps_per_site);
         double real_time = timer.RealTime(); 
         double cpu_time  = timer.CpuTime(); 
+
+        double avg_norm = lattice.GetFrobDistance(old_lattice); 
+
+        double energy = lattice.GetEnergy(n_sites); 
+    
+        //write this results
+        writer.WriteLine(
+            beta, 
+            energy, 
+            accept_prob, 
+            theta, 
+            avg_norm,
+            cpu_time/((double)n_updates_per_step*n_steps_per_site) 
+        ); 
 
         //if the metropolis acceptance is above the target, we should scan the group more aggresively (increase theta)
         //otherwise if the accept. probability is too small, we need to scan the group less aggresively (reduce theta)
         theta = theta*( 1. + 0.5*(accept_prob-target_prob) );
 
         if (theta > max_theta) theta = max_theta; 
-        lattice.SetMaxTheta(theta);
 
-        double avg_norm = lattice.GetFrobDistance(old_lattice); 
-
-        double energy = lattice.GetEnergy(1000); 
-
-        hist_energy->Fill( energy );
+        //update beta
+        beta += dBeta; 
+        
         old_lattice = lattice; 
 
-        printf("i: %-3i, time %.3f (%.3f us/flip) accept. prob: % .5f, theta: % .5f/pi, avg norm: % .5f avg energy: % .5f\n", i, real_time, 1e6*real_time/((double)n_site_updates*n_steps_per_site), accept_prob, theta/Nums::pi, avg_norm, energy);
+        printf("i: %-3i, beta: %.3f time %.3f (%.3f us/flip) accept. prob: % .5f, theta: % .5f/pi, avg norm: % .5f avg energy: % .5f\n", 
+            i, 
+            beta,
+            real_time, 
+            1e6*real_time/((double)n_updates_per_step*n_steps_per_site), 
+            accept_prob, 
+            theta/Nums::pi, 
+            avg_norm, 
+            energy
+        );
     }
     
-    auto c = new TCanvas; 
-    hist_energy->Draw(); 
-
-    c->SaveAs(Form("average_energy_beta-%.1f.pdf",beta)); 
+    writer.CloseFile(); 
 
     printf("done.\n"); 
 
