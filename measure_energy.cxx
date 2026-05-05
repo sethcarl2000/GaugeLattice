@@ -19,19 +19,19 @@ int main(int argc, char* argv[])
     auto hist_energy = new TH1D("h_dist", "Avg energy of lattice;#braket{E};", 200, 0., 2.); 
 
     //randomly roatate matrices
-    lattice.SetBeta( 0.001 );
+    lattice.SetBeta( 0. );
 
     auto old_lattice = lattice; 
 
-    lattice.SetMaxTheta( Nums::pi/4. );
+    lattice.SetMaxTheta( Nums::pi/2. );
 
     for (int i=0; i<1000; i++) {
 
-        double accept_prob = lattice.MetropolisUpdate(5e4, 10);
+        double accept_prob = lattice.MetropolisUpdate(5e5, 10);
 
         double avg_norm = lattice.GetFrobDistance(old_lattice); 
 
-        double energy = lattice.GetEnergy(1); 
+        double energy = lattice.GetEnergy(1000); 
 
         hist_energy->Fill( energy );
         old_lattice = lattice; 
@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
     auto c = new TCanvas; 
     hist_energy->Draw(); 
 
-    c->SaveAs("average_energy.pdf"); 
+    c->SaveAs("average_energy_beta-0.pdf"); 
 
     printf("done.\n"); 
 

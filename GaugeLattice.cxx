@@ -35,11 +35,11 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
         
         //pick a site to update
         Index ind_mu = RandIndex(); 
-
+        const int mu=ind_mu.dir; 
+        
         auto& U = Site(ind_mu);  
         
         //compute the product of all matrices traced with this one 
-        const int mu=ind_mu.dir; 
         SU3::Element U_trace{{
             0.,0.,0.,
             0.,0.,0.,
@@ -54,28 +54,31 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
             auto ind_nu = ind_mu; 
             ind_nu.dir = nu; //get new index
 
-            U_trace 
-                += SiteCpy(next(ind_nu, nu)) 
-                *  SiteCpy(next(ind_mu, mu)).adjoint() 
-                *  SiteCpy(ind_nu).adjoint(); 
+            U_trace += (
+                Site(next(ind_nu, nu)) *
+                SU3::Adjoint(Site(next(ind_mu, mu))) *
+                SU3::Adjoint(Site(ind_nu))
+            ); 
 
-            U_trace 
-                += SiteCpy(next(prev(ind_nu, mu), nu)).adjoint() 
-                *  SiteCpy(prev(ind_mu, mu)).adjoint() 
-                *  SiteCpy(prev(ind_nu, mu));  
+            U_trace += (
+                SU3::Adjoint(Site(next(prev(ind_nu, mu), nu))) *
+                SU3::Adjoint(Site(prev(ind_mu, mu))) *
+                Site(prev(ind_nu, mu))
+            );  
         }
 
-        double tr_old = SU3::Trace( U * U_trace ).real();
+        double tr_old = SU3::Trace( U * U_trace ).real()/3.;
 
         //now, we rotate the matrix a bit
 
         for (long long int i=0; i<n_updates_per_site; i++) {
 
-            auto U_new = SU3::Generator(RandGeneratorIdx(), fMaxTheta*(1. - 2.*Rand())) * U; 
+            //update the matrix using a random generator (group element close to the identity)
+            auto U_new = ( SU3::Generator(RandGeneratorIdx(), fMaxTheta*(1. - 2.*Rand())) * U ); 
 
-            double tr_new = SU3::Trace( U_new * U_trace ).real(); 
+            double tr_new = SU3::Trace( U_new * U_trace ).real()/3.; 
 
-            if ( Rand() < std::exp( fBeta*(tr_old - tr_new)/3. ) ) {
+            if ( Rand() < std::exp( fBeta*(tr_new - tr_old) ) ) {
 
                 //printf("old trace: %.3f     new trace: %.3f     exp(-beta*dS) = %.4f\n", tr_old, tr_new, std::exp( fBeta*(tr_new - tr_old) ));
 
@@ -103,10 +106,10 @@ template<int D> double GaugeLattice<D>::GetEnergy(int n_measurements)
         int nu = ind_nu.dir; 
 
         ReTr += SU3::Trace( 
-            SiteCpy(ind_mu) * 
-            SiteCpy(next(ind_nu, mu)) * 
-            SiteCpy(next(ind_mu, nu)).adjoint() *
-            SiteCpy(ind_nu).adjoint() 
+            Site(ind_mu) * 
+            Site(next(ind_nu, nu)) * 
+            SU3::Adjoint(Site(next(ind_mu, mu))) *
+            SU3::Adjoint(Site(ind_nu)) 
         ).real();
     }
     return 1. - ReTr/(3.*((double)n_measurements));
