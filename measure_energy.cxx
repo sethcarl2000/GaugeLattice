@@ -3,31 +3,167 @@
 #include "SU3.hxx"
 #include "numbers.hxx"
 
+#include "argparse.hpp"
+
 #include <TH1D.h> 
 #include <TH2D.h> 
 #include <TCanvas.h> 
+#include <TStopwatch.h> 
+#include <TString.h> 
 
 #include <iostream>
+#include <string> 
+#include <stdexcept> 
+#include <fstream> 
+
+namespace {
+    //dimension of the lattice 
+    constexpr int D = 4; 
+}
 
 int main(int argc, char* argv[])
 {   
+    //parse arguments
+    argparse::ArgumentParser program("measure_energy"); 
+
+    //positional argument is the output file 
+    std::string path_output;
+    program.add_argument("path_output")
+        .required()
+        .help("Path to the output file destination. Must end with '.root'")
+        .store_into(path_output);
+
+    //lattice dimension
+    /*int lattice_D;
+    program.add_argument("-D", "--dimension")
+        .help("Dimension of lattice to study")
+        .metavar("D")
+        .default_value(4)
+        .scan<'i', int>()
+        .nargs(1)
+        .store_into(lattice_D);*/ 
+
+    // lattice size 
+    int lattice_size; 
+    program.add_argument("-s", "--size")
+        .help("Size of lattice-edge")
+        .metavar("N")
+        .default_value(8)
+        .scan<'i', int>()
+        .nargs(1)
+        .store_into(lattice_size);
+
+    // lowest Beta 
+    double beta_min;
+    program.add_argument("--beta-low")
+        .help("lowest value of therm. Beta")
+        .default_value(0.)
+        .metavar("B0")
+        .scan<'g', double>()
+        .nargs(1)
+        .store_into(beta_min); 
+    
+    // highest Beta
+    double beta_max;
+    program.add_argument("--beta-high")
+        .help("highest value of therm. Beta")
+        .default_value(4.5)
+        .metavar("B1")
+        .scan<'g', double>()
+        .nargs(1)
+        .store_into(beta_max); 
+    
+    // number of steps to measure
+    int n_steps;
+    program.add_argument("-n", "--n-steps")
+        .help("number of measurement steps")
+        .scan<'i', int>()
+        .default_value((int)1e5)
+        .metavar("N")
+        .nargs(1)
+        .store_into(n_steps); 
+    
+    //number of updates per temp-step
+    int n_updates_per_step;
+    program.add_argument("--updates-per-step")
+        .help("Number of updates considered for each temperature step")
+        .scan<'i', int>()
+        .default_value((int)5e5) 
+        .metavar("N")
+        .nargs(1)
+        .store_into(n_updates_per_step); 
+
+    //choose whether heating or cooling will be executed
+    program.add_argument("-m", "--mode")
+        .help("Mode to operate in [heating/cooling]")
+        .required()
+        .metavar("MODE")
+        .choices("heating", "cooling")
+        .nargs(1); 
+    
+    try {
+        program.parse_args(argc, argv);
+    }
+    catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
+        return 1; 
+    }
+
+    //print help, and exit
+    if (program["--help"] == true) {
+        std::cout << program; 
+        return 0; 
+    }
+    const bool cooling = (program.get<std::string>("--mode") == "cooling"); 
+
+    std::printf(" D = %i, lattice size: %i, beta = [%.3f, %.3f] (%s). temp. steps: %i, updates per temp-step: %i\n", 
+        D, 
+        lattice_size, 
+        beta_min, 
+        beta_max, 
+        program.get<std::string>("--mode").c_str(), 
+        n_steps, 
+        n_updates_per_step
+    );
+    return 0; 
+
     using namespace std; 
 
-    //consturct a gauge lattice 
-    GaugeLattice<4> lattice(10); 
+    //consturct a gauge lattice, and pick the appropriate dimension
+    GaugeLattice<D> lattice(lattice_size); 
 
-    auto hist_energy = new TH1D("h_dist", "Avg energy of lattice;#braket{E};", 200, 0., 2.); 
+    std::fstream outfile(path_output.c_str(), std::ios::out); 
 
     //randomly roatate matrices
-    lattice.SetBeta( 0. );
+    const double beta = 1.; 
+    lattice.SetBeta( beta );
 
     auto old_lattice = lattice; 
 
-    lattice.SetMaxTheta( Nums::pi/2. );
+    const double target_prob = 0.5;
+    const double theta_change = 1.15; //how much theta can be scaled by
+    double theta = Nums::pi/8; 
+    const double max_theta = Nums::pi; 
+
+    const long long int n_site_updates = 5e5;
+    const long long int n_steps_per_site = 10; 
 
     for (int i=0; i<1000; i++) {
 
-        double accept_prob = lattice.MetropolisUpdate(5e5, 10);
+        lattice.SetMaxTheta(theta); 
+
+        TStopwatch timer; 
+        double accept_prob = lattice.MetropolisUpdate(n_site_updates, n_steps_per_site);
+        double real_time = timer.RealTime(); 
+        double cpu_time  = timer.CpuTime(); 
+
+        //if the metropolis acceptance is above the target, we should scan the group more aggresively (increase theta)
+        //otherwise if the accept. probability is too small, we need to scan the group less aggresively (reduce theta)
+        theta = theta*( 1. + 0.5*(accept_prob-target_prob) );
+
+        if (theta > max_theta) theta = max_theta; 
+        lattice.SetMaxTheta(theta);
 
         double avg_norm = lattice.GetFrobDistance(old_lattice); 
 
@@ -36,13 +172,13 @@ int main(int argc, char* argv[])
         hist_energy->Fill( energy );
         old_lattice = lattice; 
 
-        printf("i: %-3i, accept. prob: % .5f, avg norm: % .5f avg energy: % .5f\n", i, accept_prob, avg_norm, energy);
+        printf("i: %-3i, time %.3f (%.3f us/flip) accept. prob: % .5f, theta: % .5f/pi, avg norm: % .5f avg energy: % .5f\n", i, real_time, 1e6*real_time/((double)n_site_updates*n_steps_per_site), accept_prob, theta/Nums::pi, avg_norm, energy);
     }
-
+    
     auto c = new TCanvas; 
     hist_energy->Draw(); 
 
-    c->SaveAs("average_energy_beta-0.pdf"); 
+    c->SaveAs(Form("average_energy_beta-%.1f.pdf",beta)); 
 
     printf("done.\n"); 
 
