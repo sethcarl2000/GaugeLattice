@@ -75,7 +75,7 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
 
             double tr_new = SU3::Trace( U_new * U_trace ).real(); 
 
-            if ( Rand() < std::exp( fBeta*(tr_new - tr_old) ) ) {
+            if ( Rand() < std::exp( fBeta*(tr_old - tr_new)/3. ) ) {
 
                 //printf("old trace: %.3f     new trace: %.3f     exp(-beta*dS) = %.4f\n", tr_old, tr_new, std::exp( fBeta*(tr_new - tr_old) ));
 
@@ -89,9 +89,27 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
     return ((double)n_accepted)/((double)n_site_updates*n_updates_per_site); 
 }
 //____________________________________________________________________________________________________
-template<int D> double GaugeLattice<D>::GetEnergy(int n_measurements) const 
+template<int D> double GaugeLattice<D>::GetEnergy(int n_measurements)
 {
-    return 0.; 
+    double ReTr=0.; 
+    for (int i=0; i<n_measurements; i++) {
+
+        //pick a random site to measure
+        Index ind_mu = RandIndex(); 
+        int mu = ind_mu.dir; 
+
+        auto ind_nu = ind_mu; 
+        do { ind_nu.dir = fRint_direction(fTwister); } while (ind_nu.dir == ind_mu.dir); 
+        int nu = ind_nu.dir; 
+
+        ReTr += SU3::Trace( 
+            SiteCpy(ind_mu) * 
+            SiteCpy(next(ind_nu, mu)) * 
+            SiteCpy(next(ind_mu, nu)).adjoint() *
+            SiteCpy(ind_nu).adjoint() 
+        ).real();
+    }
+    return 1. - ReTr/(3.*((double)n_measurements));
 }
 //____________________________________________________________________________________________________
 template<int D> void GaugeLattice<D>::Print() const 

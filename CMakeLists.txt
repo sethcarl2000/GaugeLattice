@@ -55,6 +55,9 @@ add_executable(avg_dist avg_dist.cxx ${sources} ${headers})
 target_include_directories(avg_dist PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ROOT_INCLUDE_DIRS})
 target_link_libraries(avg_dist PRIVATE ${ROOT_LIBRARIES})
 
+add_executable(measure_energy measure_energy.cxx ${sources} ${headers})
+target_include_directories(measure_energy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ROOT_INCLUDE_DIRS})
+target_link_libraries(measure_energy PRIVATE ${ROOT_LIBRARIES})
 
 #---------------------------------------------------------
 #   Generate the ROOT dictionary

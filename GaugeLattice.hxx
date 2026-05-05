@@ -116,7 +116,7 @@ public:
     /// @brief randomly samples the trace of plaquettes in the lattice
     /// @param n_measurements number of plaquettes to randomly sample 
     /// @return stochastic measurement of the energy 
-    double GetEnergy(int n_measurements) const; 
+    double GetEnergy(int n_measurements); 
 
     /// returns the average frobenius norm between this lattice and the rhs lattice 
     double GetFrobDistance(const GaugeLattice<D>& rhs) const; 

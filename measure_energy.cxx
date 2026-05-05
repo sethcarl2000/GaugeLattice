@@ -14,33 +14,35 @@ int main(int argc, char* argv[])
     using namespace std; 
 
     //consturct a gauge lattice 
-    GaugeLattice<2> lattice(5); 
+    GaugeLattice<4> lattice(10); 
 
-    auto hist_dist = new TH1D("h_dist", "Avg. frobenius dist between SU(3) members; || g_{1} - g_{2} ||_{F} / 9", 200, 0.5, 1.5); 
+    auto hist_energy = new TH1D("h_dist", "Avg energy of lattice;#braket{E};", 200, 0., 2.); 
 
     //randomly roatate matrices
-    lattice.SetBeta( 0.0 );
+    lattice.SetBeta( 0.001 );
 
     auto old_lattice = lattice; 
 
     lattice.SetMaxTheta( Nums::pi/4. );
 
-    for (int i=0; i<10000; i++) {
+    for (int i=0; i<1000; i++) {
 
-        double accept_prob = lattice.MetropolisUpdate(1e3, 10);
+        double accept_prob = lattice.MetropolisUpdate(5e4, 10);
 
         double avg_norm = lattice.GetFrobDistance(old_lattice); 
 
-        hist_dist->Fill( sqrt(avg_norm) );
+        double energy = lattice.GetEnergy(1); 
+
+        hist_energy->Fill( energy );
         old_lattice = lattice; 
 
-        //printf("i: %-3i, accept. prob: % .5f, avg norm: % .5f\n", i, accept_prob, avg_norm);
+        printf("i: %-3i, accept. prob: % .5f, avg norm: % .5f avg energy: % .5f\n", i, accept_prob, avg_norm, energy);
     }
 
     auto c = new TCanvas; 
-    hist_dist->Draw(); 
+    hist_energy->Draw(); 
 
-    c->SaveAs("average_dist.pdf"); 
+    c->SaveAs("average_energy.pdf"); 
 
     printf("done.\n"); 
 
