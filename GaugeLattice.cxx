@@ -2,6 +2,7 @@
 #define GaugeLattice_CXX
 
 #include "GaugeLattice.hxx"
+#include "numbers.hxx"
 #include "SU3.hxx"
 #include <math.h> 
 
@@ -85,9 +86,8 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
     return ((double)n_accepted)/((double)n_site_updates*n_updates_per_site); 
 }
 //____________________________________________________________________________________________________
-template<int D> double GaugeLattice<D>::GetEnergy() const 
+template<int D> double GaugeLattice<D>::GetEnergy(int n_measurements) const 
 {
-    /*noop*/
     return 0.; 
 }
 //____________________________________________________________________________________________________
@@ -104,6 +104,30 @@ template<int D> GaugeLattice<D>::Index GaugeLattice<D>::RandIndex()
     return site; 
 }
 //____________________________________________________________________________________________________
+template<int D> double GaugeLattice<D>::GetFrobDistance(const GaugeLattice<D>& rhs) const
+{
+    if (rhs.GetSideLength() != GetSideLength()) {
+        throw std::logic_error(Form("<GaugeLattice::GetFrobDistance>: side length of rhs (%i) does not match lhs (%i)",rhs.GetSideLength(),GetSideLength()));
+        return numbers::NaN;
+    }
+
+    double avg_norm = 0.; 
+    double n=0.; 
+
+    for (const auto& cc_L : GetArray()) {
+        for (const auto& cc_R : rhs.GetArray()) {
+
+            for (const auto& gl : cc_L) {
+                for (const auto& gr : cc_R) {
+                    avg_norm += SU3::Trace( (gl - gr).adjoint()*(gl - gr) ).norm()/9.; 
+                    ++n; 
+                }
+            }
+
+        }
+    }
+    return avg_norm/n; 
+} 
 //____________________________________________________________________________________________________
 //____________________________________________________________________________________________________
 //____________________________________________________________________________________________________

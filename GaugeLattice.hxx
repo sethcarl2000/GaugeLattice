@@ -70,27 +70,6 @@ private:
     /// @return random connection on the lattice 
     GaugeLattice<D>::Index RandIndex(); 
     
-    /// @return connection on lattice indexed by 'ind'
-    inline SU3::Element& Site(const GaugeLattice<D>::Index& ind) { 
-        int idx=0;
-        for (auto i : ind.pos) {
-            //fix out-of-bounds indices
-            if (i<0) { i+=fSideLength; } else { if (i>=fSideLength) i-=fSideLength; }
-            idx = i + (fSideLength*idx);
-        } 
-        return fConnections[ind.dir][idx]; 
-    }
-
-    /// @return copy of connection on lattice indexed by 'ind'
-    inline SU3::Element SiteCpy(const GaugeLattice<D>::Index& ind) const {
-        int idx=0;
-        for (auto i : ind.pos) {
-            //fix out-of-bounds indices
-            if (i<0) { i+=fSideLength; } else { if (i>=fSideLength) i-=fSideLength; }
-            idx += i + (fSideLength*idx);
-        } 
-        return fConnections[ind.dir][idx]; 
-    }
 
 public: 
 
@@ -106,18 +85,50 @@ public:
     /// @return fraction of proposed updates accepted 
     double MetropolisUpdate(long long int n_site_updates, long long int n_updates_per_site); 
 
+    /// @return connection on lattice indexed by 'ind'
+    inline SU3::Element& Site(const GaugeLattice<D>::Index& ind) noexcept { 
+        int idx=0;
+        for (auto i : ind.pos) {
+            //fix out-of-bounds indices
+            if (i<0) { i+=fSideLength; } else { if (i>=fSideLength) i-=fSideLength; }
+            idx = i + (fSideLength*idx);
+        } 
+        return fConnections[ind.dir][idx]; 
+    }
+
+    /// @return copy of connection on lattice indexed by 'ind'
+    inline SU3::Element SiteCpy(const GaugeLattice<D>::Index& ind) const noexcept {
+        int idx=0;
+        for (auto i : ind.pos) {
+            //fix out-of-bounds indices
+            if (i<0) { i+=fSideLength; } else { if (i>=fSideLength) i-=fSideLength; }
+            idx += i + (fSideLength*idx);
+        } 
+        return fConnections[ind.dir][idx]; 
+    }
+
     /// set thermodynamic beta
     void SetBeta(double b) { fBeta=b; }
 
     /// set maximum generalied angle around which to rotate 
     void SetMaxTheta(double theta) { fMaxTheta=theta; }
 
-    /// get expectation value of the energy 
-    double GetEnergy() const; 
+    /// @brief randomly samples the trace of plaquettes in the lattice
+    /// @param n_measurements number of plaquettes to randomly sample 
+    /// @return stochastic measurement of the energy 
+    double GetEnergy(int n_measurements) const; 
+
+    /// returns the average frobenius norm between this lattice and the rhs lattice 
+    double GetFrobDistance(const GaugeLattice<D>& rhs) const; 
+
+    /// @return side length of the lattice 
+    int GetSideLength() const { return fSideLength; }
+
+    /// @return access to unerlying array
+    const std::array<std::vector<SU3::Element>, D>& GetArray() const { return fConnections; }
 
     //print current lattice configuration 
     void Print() const; 
-
 }; 
 
 #endif
