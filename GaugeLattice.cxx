@@ -151,7 +151,23 @@ template<int D> double GaugeLattice<D>::GetFrobDistance(const GaugeLattice<D>& r
     return avg_norm/std::pow(GetSideLength(), D); 
 } 
 //____________________________________________________________________________________________________
+template<int D> void GaugeLattice<D>::HotStart(int n_steps)
+{
+    for (auto& direction : fConnections) {
+        for (auto& g : direction) {
+            for (int i=0; i<n_steps; i++) g = g * SU3::Generator(RandGeneratorIdx(), Nums::pi);
+        }
+    }
+}
 //____________________________________________________________________________________________________
+template<int D> void GaugeLattice<D>::ColdStart()
+{
+    for (auto& direction : fConnections) {
+        for (auto& g : direction) {
+            g = SU3::Identity();
+        }
+    }
+}
 //____________________________________________________________________________________________________
 //____________________________________________________________________________________________________
 //____________________________________________________________________________________________________

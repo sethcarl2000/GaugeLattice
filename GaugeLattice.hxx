@@ -124,6 +124,13 @@ public:
     /// @return side length of the lattice 
     int GetSideLength() const { return fSideLength; }
 
+    /// @brief Randomly rotates each lattice connection 'n' steps worth
+    /// @param n_steps number of times to twist each lattice site (should be at least ~ 20)
+    void HotStart(int n_steps);
+
+    /// @brief sets each lattice site to the identity element
+    void ColdStart(); 
+
     /// @return access to unerlying array
     const std::array<std::vector<SU3::Element>, D>& GetArray() const { return fConnections; }
 
