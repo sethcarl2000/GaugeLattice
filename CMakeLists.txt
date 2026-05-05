@@ -48,12 +48,13 @@ set(headers
 #---------------------------------------------------------
 #   Add application executable
 add_executable(main main.cxx ${sources} ${headers})
-
-message("cmake: ROOT_INCLUDE_DIRS: '${ROOT_INCLUDE_DIRS}'")
-
 target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ROOT_INCLUDE_DIRS})
-
 target_link_libraries(main PRIVATE ${ROOT_LIBRARIES})
+
+add_executable(avg_dist avg_dist.cxx ${sources} ${headers})
+target_include_directories(avg_dist PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ROOT_INCLUDE_DIRS})
+target_link_libraries(avg_dist PRIVATE ${ROOT_LIBRARIES})
+
 
 #---------------------------------------------------------
 #   Generate the ROOT dictionary

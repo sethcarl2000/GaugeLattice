@@ -1,13 +1,9 @@
 #include "ComplexNum.hxx"
 #include "GaugeLattice.cxx"
 #include "SU3.hxx"
+#include "numbers.hxx"
 
 #include <iostream>
-
-namespace {
-    constexpr double pi = 3.1415926535; 
-}
-
 
 int main(int argc, char* argv[])
 {   
@@ -18,9 +14,7 @@ int main(int argc, char* argv[])
 
     lattice.SetBeta( 0.5 );
 
-    lattice.SetMaxTheta( pi/2 );
-
-    
+    lattice.SetMaxTheta( Nums::pi/2. );
 
     for (int i=0; i<1000; i++) {
 

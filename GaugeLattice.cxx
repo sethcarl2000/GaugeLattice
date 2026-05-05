@@ -76,6 +76,9 @@ template<int D> double GaugeLattice<D>::MetropolisUpdate(long long int n_site_up
             double tr_new = SU3::Trace( U_new * U_trace ).real(); 
 
             if ( Rand() < std::exp( fBeta*(tr_new - tr_old) ) ) {
+
+                //printf("old trace: %.3f     new trace: %.3f     exp(-beta*dS) = %.4f\n", tr_old, tr_new, std::exp( fBeta*(tr_new - tr_old) ));
+
                 U = U_new; 
                 tr_old = tr_new; 
                 ++n_accepted; 
@@ -108,25 +111,23 @@ template<int D> double GaugeLattice<D>::GetFrobDistance(const GaugeLattice<D>& r
 {
     if (rhs.GetSideLength() != GetSideLength()) {
         throw std::logic_error(Form("<GaugeLattice::GetFrobDistance>: side length of rhs (%i) does not match lhs (%i)",rhs.GetSideLength(),GetSideLength()));
-        return numbers::NaN;
+        return Nums::NaN;
     }
 
     double avg_norm = 0.; 
-    double n=0.; 
 
-    for (const auto& cc_L : GetArray()) {
-        for (const auto& cc_R : rhs.GetArray()) {
+    const auto& arr_L = GetArray(); 
+    const auto& arr_R = rhs.GetArray(); 
 
-            for (const auto& gl : cc_L) {
-                for (const auto& gr : cc_R) {
-                    avg_norm += SU3::Trace( (gl - gr).adjoint()*(gl - gr) ).norm()/9.; 
-                    ++n; 
-                }
-            }
+    for (int i=0; i<D; i++) {
 
-        }
+        const auto& cL = arr_L[i]; 
+        const auto& cR = arr_R[i]; 
+
+        for (int j=0; j<cL.size(); j++) avg_norm += SU3::FrobeniusNorm( cL[j] - cR[j] )/9.;
     }
-    return avg_norm/n; 
+
+    return avg_norm/std::pow(GetSideLength(), D); 
 } 
 //____________________________________________________________________________________________________
 //____________________________________________________________________________________________________

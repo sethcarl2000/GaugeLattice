@@ -27,6 +27,16 @@ Element& Element::operator+=(const Element& rhs) noexcept
     return *this;
 }
 //_____________________________________________________________________________________________________________________
+Element& Element::operator-=(const Element& rhs) noexcept 
+{ 
+    for (int i=0; i<Element::dim; i++) {
+        for (int j=0; j<Element::dim; j++) {
+            (*this)(i,j) -= rhs.get(i,j); 
+        }
+    }
+    return *this;
+}
+//_____________________________________________________________________________________________________________________
 Element& Element::adjoint() noexcept 
 {
     ComplexNum temp;

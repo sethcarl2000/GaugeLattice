@@ -3,7 +3,7 @@
 
 #include <limits> 
 
-namespace numbers {
+namespace Nums {
     
     constexpr double pi = 3.14159265359; 
 

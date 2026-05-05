@@ -30,6 +30,8 @@ namespace SU3 {
         /// matrix addition  
         Element& operator+=(const Element& rhs) noexcept;
 
+        Element& operator-=(const Element& rhs) noexcept; 
+
         /// transform this matrix to its adjoint (hermitian conjugate) 
         Element& adjoint() noexcept;
     };
@@ -41,6 +43,11 @@ namespace SU3 {
     inline Element operator+(Element lhs, const Element& rhs) noexcept 
     {
         lhs += rhs; 
+        return lhs; 
+    }
+    inline Element operator-(Element lhs, const Element& rhs) noexcept 
+    {
+        lhs -= rhs; 
         return lhs; 
     }
 
@@ -68,6 +75,12 @@ namespace SU3 {
             }
         } 
         return adj; 
+    }
+
+    inline double FrobeniusNorm(const Element& g) noexcept {
+        double norm =0.; 
+        for (const auto& ele : g.matrix) norm += std::norm( ele );
+        return norm; 
     }
 
     
