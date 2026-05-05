@@ -38,7 +38,8 @@ set(sources
     GaugeLattice.cxx
 )
 
-set(headers 
+set(headers
+    numbers.hxx
     ComplexNum.hxx
     GaugeLattice.hxx
     SU3.hxx
