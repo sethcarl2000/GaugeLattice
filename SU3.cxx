@@ -11,13 +11,13 @@ namespace SU3
 {
 
 //_____________________________________________________________________________________________________________________
-Element& Element::operator*=(const Element& rhs) 
+Element& Element::operator*=(const Element& rhs) noexcept 
 { 
     *this = (*this) * rhs; 
     return *this; 
 }
 //_____________________________________________________________________________________________________________________
-Element& Element::operator+=(const Element& rhs) 
+Element& Element::operator+=(const Element& rhs) noexcept 
 { 
     for (int i=0; i<Element::dim; i++) {
         for (int j=0; j<Element::dim; j++) {
@@ -27,7 +27,7 @@ Element& Element::operator+=(const Element& rhs)
     return *this;
 }
 //_____________________________________________________________________________________________________________________
-Element& Element::adjoint() 
+Element& Element::adjoint() noexcept 
 {
     ComplexNum temp;
     for (int i=0; i<Element::dim; i++) {

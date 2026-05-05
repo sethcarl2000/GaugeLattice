@@ -25,27 +25,27 @@ namespace SU3 {
         inline const ComplexNum& get(int i, int j) const { return matrix[i*dim + j]; }
 
         /// matrix multiplication  
-        Element& operator*=(const Element& rhs); 
+        Element& operator*=(const Element& rhs) noexcept; 
 
         /// matrix addition  
-        Element& operator+=(const Element& rhs);
+        Element& operator+=(const Element& rhs) noexcept;
 
         /// transform this matrix to its adjoint (hermitian conjugate) 
-        Element& adjoint();
+        Element& adjoint() noexcept;
     };
     
     //now, define some out-of-function body operators. this way, we can operate on 'Element' structs which 
     // are not modifiable lvalues
 
     // matrix addition 
-    inline Element operator+(Element lhs, const Element& rhs)
+    inline Element operator+(Element lhs, const Element& rhs) noexcept 
     {
         lhs += rhs; 
         return lhs; 
     }
 
     // matrix multiplication 
-    inline Element operator*(const Element& lhs, const Element& rhs)
+    inline Element operator*(const Element& lhs, const Element& rhs) noexcept 
     {
         Element prod;  
         for (int i=0; i<Element::dim; i++) {
@@ -60,7 +60,7 @@ namespace SU3 {
     }   
 
     /// adjoint (hermitian conjugate) 
-    inline Element Adjoint(const Element& g) { 
+    inline Element Adjoint(const Element& g) noexcept { 
         Element adj; 
         for (int i=0; i<Element::dim; i++) {
             for (int j=0; j<Element::dim; j++) {
@@ -72,10 +72,10 @@ namespace SU3 {
 
     
     /// @return Tr(g)
-    inline ComplexNum Trace(const Element& g) { return g.get(0,0) + g.get(1,1) + g.get(2,2); }
+    inline ComplexNum Trace(const Element& g) noexcept { return g.get(0,0) + g.get(1,1) + g.get(2,2); }
 
     /// @return Identitiy element
-    inline Element Identity() {
+    inline Element Identity() noexcept {
         return Element{
             1., 0., 0.,
             0., 1., 0., 
