@@ -31,15 +31,15 @@ fi
 n_threads=${SLURM_CPUS_PER_TASK}
 
 mode=${1}
-steps=4500
+steps=100
 
 size=${array_id}
 
-beta0=0
-beta1=30
+beta0=12
+beta1=15
 
 # estimate a reasonable number of updates between measurements 
-updates_per_step=$(bc <<< "scale=0; 100000 + (5*(${size}^4))")
+updates_per_step=$(bc <<< "scale=0; (4*${size})^4")
 
 outfile_path="data/out_${mode}_n-${size}_beta-${beta0}-${beta1}_${job_id}.root"
 
