@@ -11,6 +11,8 @@
 #include <TCanvas.h> 
 #include <TStopwatch.h> 
 #include <TString.h> 
+#include <TParameter.h> 
+#include <TFile.h> 
 
 #include <iostream>
 #include <string> 
@@ -18,6 +20,13 @@
 #include <fstream> 
 #include <thread> 
 #include <mutex> 
+
+template <typename T> void WriteParameter(std::string name, const T& val)
+{
+    //if a TFile is not currently open, this will cause errors! 
+    auto param = new TParameter<T>(name.c_str(), val); 
+    param->Write(); 
+}; 
 
 namespace {
     //dimension of the lattice 
@@ -42,13 +51,13 @@ int main(int argc, char* argv[])
 
     //lattice dimension
     int n_threads = std::thread::hardware_concurrency(); 
-    /*program.add_argument("-j", "--n-cpus")
-        .help("Number of threads to use. default is hardware concurrency")
+    program.add_argument("-j", "--n-cpus")
+        .help("Number of concurrent threads to use")
         .metavar("N")
-        .default_value(std::thread::hardware_concurrency())
+        .default_value(1)
         .scan<'i', int>()
         .nargs(1)
-        .store_into(n_threads);*/ 
+        .store_into(n_threads);
 
     // lattice size 
     int lattice_size; 
@@ -139,7 +148,7 @@ int main(int argc, char* argv[])
         n_updates_per_step
     );
     
-    TreeWriter writer("data_tree", path_output); 
+    TreeWriter writer("data_tree", path_output, n_steps*n_threads); 
 
     //change in beta between each step
     const double dBeta = 
@@ -253,6 +262,18 @@ int main(int argc, char* argv[])
     for (auto& t : threads) t.join(); 
 
     writer.CloseFile(); 
+
+    auto file = new TFile(path_output.c_str(), "UPDATE"); 
+
+    WriteParameter("beta_min", beta_min); 
+    WriteParameter("beta_max", beta_max); 
+    WriteParameter("n_steps",  n_steps); 
+    WriteParameter("updates_per_step", n_updates_per_step);
+    WriteParameter("steps_per_site", n_steps_per_site);
+    WriteParameter("n_threads", n_threads); 
+    WriteParameter("lattice_size", lattice_size);
+    WriteParameter("lattice_dimension", D); 
+    WriteParameter("cooling", cooling);
 
     printf("done.\n"); 
 
