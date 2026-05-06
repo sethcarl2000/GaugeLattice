@@ -16,6 +16,8 @@
 #include <string> 
 #include <stdexcept> 
 #include <fstream> 
+#include <thread> 
+#include <mutex> 
 
 namespace {
     //dimension of the lattice 
@@ -34,8 +36,19 @@ int main(int argc, char* argv[])
         .help("Path to the output file destination. Must end with '.root'")
         .store_into(path_output);
 
+    program.add_argument("-q", "--quiet")
+        .help("When enabled, Reduces printing to stdout")
+        .flag(); 
+
     //lattice dimension
-    program.add_argument("-s", "--");
+    int n_threads = std::thread::hardware_concurrency(); 
+    /*program.add_argument("-j", "--n-cpus")
+        .help("Number of threads to use. default is hardware concurrency")
+        .metavar("N")
+        .default_value(std::thread::hardware_concurrency())
+        .scan<'i', int>()
+        .nargs(1)
+        .store_into(n_threads);*/ 
 
     // lattice size 
     int lattice_size; 
@@ -70,7 +83,7 @@ int main(int argc, char* argv[])
     // number of steps to measure
     int n_steps;
     program.add_argument("-n", "--n-steps")
-        .help("number of measurement steps")
+        .help("number of measurement steps per execution thread")
         .scan<'i', int>()
         .default_value((int)1e5)
         .metavar("N")
@@ -111,6 +124,8 @@ int main(int argc, char* argv[])
     }
     const bool cooling = (program.get<std::string>("--mode") == "cooling"); 
 
+    const bool quiet = (program["--quiet"] == true); 
+
     //it's not strictly necessary to define this bool, but it may make the code that follows more readable
     const bool heating = !cooling; 
 
@@ -126,29 +141,13 @@ int main(int argc, char* argv[])
     
     TreeWriter writer("data_tree", path_output); 
 
-    //consturct a gauge lattice, and pick the appropriate dimension
-    GaugeLattice<D> lattice(lattice_size); 
-
-    double beta = cooling ? beta_min : beta_max; 
-
     //change in beta between each step
     const double dBeta = 
         (cooling ? +1. : -1.)*
         (beta_max - beta_min)/((double)n_steps-1); 
-
-    lattice.SetBeta( beta );
-
-    if (cooling) {
-        lattice.HotStart(100); //start with random lattice sites (hot) 
-    } else {
-        lattice.ColdStart(); //start with each lattice site as the identity (cold)
-    }
-    //this lattice will help us track how much the overall lattice is changing by 
-    auto old_lattice = lattice; 
-
+    
     const double target_prob = 0.5;
     const double theta_change = 1.15; //how much theta can be scaled by
-    double theta = Nums::pi/8; 
     const double max_theta = Nums::pi; 
 
     int n_sites = std::pow(lattice_size, D); 
@@ -156,53 +155,102 @@ int main(int argc, char* argv[])
     //number of updates to consider for each site, for each update step
     const long long int n_steps_per_site = 10; 
 
-    for (int i=0; i<n_steps; i++) {
+    std::vector<std::thread> threads; threads.reserve(n_threads);
 
-        lattice.SetMaxTheta(theta); 
-        lattice.SetBeta(beta); 
+    std::mutex print_mutex; 
 
-        TStopwatch timer; 
-        double accept_prob = lattice.MetropolisUpdate(n_updates_per_step, n_steps_per_site);
-        double real_time = timer.RealTime(); 
-        double cpu_time  = timer.CpuTime(); 
-
-        double avg_norm = lattice.GetFrobDistance(old_lattice); 
-
-        double energy = lattice.GetEnergy(n_sites); 
-    
-        //write this results
-        writer.WriteLine(
-            beta, 
-            energy, 
-            accept_prob, 
-            theta, 
-            avg_norm,
-            cpu_time/((double)n_updates_per_step*n_steps_per_site) 
-        ); 
-
-        //if the metropolis acceptance is above the target, we should scan the group more aggresively (increase theta)
-        //otherwise if the accept. probability is too small, we need to scan the group less aggresively (reduce theta)
-        theta = theta*( 1. + 0.5*(accept_prob-target_prob) );
-
-        if (theta > max_theta) theta = max_theta; 
-
-        //update beta
-        beta += dBeta; 
+    for (int t=0; t<n_threads; t++) {
         
-        old_lattice = lattice; 
+        threads.emplace_back([
+            t, 
+            &print_mutex, 
+            &writer, 
+            quiet,
+            target_prob, theta_change, max_theta, beta_min, beta_max, dBeta, n_sites, lattice_size, cooling, n_steps_per_site, n_updates_per_step, n_steps
+        ]{  
+            //consturct a gauge lattice, and pick the appropriate dimension
+            GaugeLattice<D> lattice(lattice_size); 
+            
+            //the sub-result for this thread, which will be combined with other sub-results from other threads once done. 
+            std::vector<TreeWriter::Data> thread_result; thread_result.reserve(n_steps);
 
-        printf("i: %-3i, beta: %.3f time %.3f (%.3f us/flip) accept. prob: % .5f, theta: % .5f/pi, avg norm: % .5f avg energy: % .5f\n", 
-            i, 
-            beta,
-            real_time, 
-            1e6*real_time/((double)n_updates_per_step*n_steps_per_site), 
-            accept_prob, 
-            theta/Nums::pi, 
-            avg_norm, 
-            energy
-        );
+            double beta = cooling ? beta_min : beta_max; 
+            
+            lattice.SetBeta( beta );
+
+            if (cooling) {
+                lattice.HotStart(100); //start with random lattice sites (hot) 
+            } else {
+                lattice.ColdStart(); //start with each lattice site as the identity (cold)
+            }
+            //this lattice will help us track how much the overall lattice is changing by 
+            auto old_lattice = lattice; 
+
+            double theta = cooling ? Nums::pi : Nums::pi/24; 
+            lattice.SetMaxTheta( theta );
+            
+            for (int i=0; i<n_steps; i++) {
+
+                lattice.SetMaxTheta(theta); 
+                lattice.SetBeta(beta); 
+
+                TStopwatch timer; 
+                double accept_prob = lattice.MetropolisUpdate(n_updates_per_step, n_steps_per_site);
+                double real_time = timer.RealTime(); 
+                double cpu_time  = timer.CpuTime(); 
+
+                //get the average distance to the 'old' 
+                double avg_norm = lattice.GetFrobDistance(old_lattice); 
+
+                //ge the energy 
+                double energy = lattice.GetEnergy(n_sites); 
+            
+                //write this result to our thread's local collection of results
+                thread_result.emplace_back(
+                    beta, 
+                    energy, 
+                    accept_prob, 
+                    theta, 
+                    avg_norm,
+                    cpu_time/((double)n_updates_per_step*n_steps_per_site) 
+                ); 
+
+                //if the metropolis acceptance is above the target, we should scan the group more aggresively (increase theta)
+                //otherwise if the accept. probability is too small, we need to scan the group less aggresively (reduce theta)
+                theta = theta*( 1. + 0.5*(accept_prob-target_prob) );
+
+                if (theta > max_theta) theta = max_theta; 
+
+                //update beta
+                beta += dBeta; 
+                
+                old_lattice = lattice; 
+
+                if (!quiet) {
+                    print_mutex.lock();
+                    std::printf("i: %-3i, thread %2i, beta: %.3f time %.3f (%.3f us/flip) accept. prob: % .5f, theta: % .5f/pi, avg norm: % .5f avg energy: % .5f\n", 
+                        i, t,
+                        beta,
+                        real_time, 
+                        1e6*real_time/((double)n_updates_per_step*n_steps_per_site), 
+                        accept_prob, 
+                        theta/Nums::pi, 
+                        avg_norm, 
+                        energy
+                    );
+                    print_mutex.unlock(); 
+                }
+            }//for (int i=0; i<n_steps)
+
+            //write all of this thread's sub-results at once (much more efficient this way)
+            writer.WriteLines(thread_result);
+
+        });//threads.emplace_back(...)
     }
-    
+
+    //join all the threads (wait here for them to finish their work)
+    for (auto& t : threads) t.join(); 
+
     writer.CloseFile(); 
 
     printf("done.\n"); 

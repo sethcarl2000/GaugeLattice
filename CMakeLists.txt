@@ -58,8 +58,14 @@ target_include_directories(avg_dist PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ROOT_I
 target_link_libraries(avg_dist PRIVATE ${ROOT_LIBRARIES})
 
 add_executable(measure_energy measure_energy.cxx ${sources} ${headers})
+
+find_package(Threads REQUIRED)
+target_link_libraries(measure_energy PUBLIC Threads::Threads)
+
+target_compile_options(measure_energy PRIVATE -pthread)
 target_include_directories(measure_energy PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ROOT_INCLUDE_DIRS})
 target_link_libraries(measure_energy PRIVATE ${ROOT_LIBRARIES})
+
 
 #---------------------------------------------------------
 #   Generate the ROOT dictionary

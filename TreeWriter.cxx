@@ -4,7 +4,7 @@
 #include <TString.h> 
 
 //_____________________________________________________________________________________________
-TreeWriter::TreeWriter(std::string tree_name, std::string path_outfile)
+TreeWriter::TreeWriter(std::string tree_name, std::string path_outfile, long int n_entries)
 {
     try {
         fFile = std::unique_ptr<TFile>(new TFile(path_outfile.data(), "RECREATE"));
@@ -13,46 +13,57 @@ TreeWriter::TreeWriter(std::string tree_name, std::string path_outfile)
         return; 
     }
 
-    //now, try to define the output branches
-    fTree = new TTree(tree_name.c_str(), "data");
-    
-    fTree->Branch("beta",               &fBeta,             "beta/D");
-    fTree->Branch("energy",             &fEnergy,           "energy/D");
-    fTree->Branch("p_accept",           &fP_accept,         "p_accept/D");
-    fTree->Branch("theta",              &fTheta,            "theta/D");
-    fTree->Branch("frob_distance",      &fFrob_distance,    "frob_distance/D");
-    fTree->Branch("time_per_update",    &fTime,             "time_per_update/D");
+    if (n_entries > 0) fData.reserve(n_entries); 
 }
 //_____________________________________________________________________________________________
 void TreeWriter::CloseFile()
-{
-    if (fFile != nullptr && fFile->IsOpen()) {
-        if (fTree) fTree->Write(); 
-        fFile->Close(); 
-        fTree = nullptr; 
+{   
+    //write all elements to vector
+    if (fFile == nullptr || !fFile->IsOpen()) {
+        throw std::logic_error("<TreeWriter::CloseFile>: File is not open!"); 
+        return; 
     }
+
+    fTree = new TTree("data_tree", "data tree"); 
+
+    Data my_data; 
+
+    fTree->Branch("beta",           &my_data.beta,          "beta/D"); 
+    fTree->Branch("energy",         &my_data.energy,        "energy/D"); 
+    fTree->Branch("p_accept",       &my_data.p_accept,      "p_accept/D"); 
+    fTree->Branch("theta",          &my_data.theta,         "theta/D"); 
+    fTree->Branch("frob_distance",  &my_data.frob_distance, "frob_distance/D"); 
+    fTree->Branch("time",           &my_data.time,          "time/D"); 
+
+    for (const auto& evt : fData) {
+        //copy this event into data
+        my_data = evt; 
+
+        //save this event
+        fTree->Fill(); 
+    }
+
+    //save this tree to the file 
+    fTree->Write(); 
+    
+    //close & save the file 
+    fFile->Close(); 
+    fTree = nullptr; 
+}
+//_____________________________________________________________________________________________
+void TreeWriter::WriteLines(const std::vector<TreeWriter::Data>& data_in)
+{
+    fWriteMutex.lock();
+    fData.insert( fData.end(), data_in.begin(), data_in.end() ); 
+    fWriteMutex.unlock(); 
 }
 //_____________________________________________________________________________________________
 void TreeWriter::WriteLine(double beta, double energy, double p_accept, double theta, double frob_distsance, double time)
-{    
-    if (!fTree) {
-        throw std::logic_error("<TreeWriter::WriteLine> tree is null"); 
-        return;
-    }
+{   
     fWriteMutex.lock();
-
-    fBeta=beta;
-    fEnergy=energy;
-    fP_accept=p_accept;
-    fTheta=theta;
-    fFrob_distance=frob_distsance;
-    fTime=time;
-
-    //write this line in the tree
-    fTree->Fill(); 
-    
+    fData.emplace_back(beta, energy, p_accept, theta, frob_distsance, time); 
     fWriteMutex.unlock(); 
-} 
+}
 //_____________________________________________________________________________________________
 //_____________________________________________________________________________________________
 //_____________________________________________________________________________________________
