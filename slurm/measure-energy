@@ -31,7 +31,7 @@ fi
 n_threads=${SLURM_CPUS_PER_TASK}
 
 mode=${1}
-steps=100
+steps=300
 
 size=${array_id}
 
