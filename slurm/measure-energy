@@ -1,0 +1,52 @@
+#!/bin/bash 
+
+#SBATCH --nodes 1
+#SBATCH --partition standard
+#SBATCH --account phys5640_chern
+#SBATCH --ntasks 1
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=2G
+#SBATCH --time 240
+#SBATCH --output=/home/ckx5qj/repos/GaugeLattice/log/%x.%a.%A.out
+#SBATCH --error=/home/ckx5qj/repos/GaugeLattice/log/%x.%a.%A.err
+
+# set up shell env, and activate conda environment
+source /home/ckx5qj/.bashrc
+
+conda activate phys56xx
+
+cd /home/ckx5qj/repos/GaugeLattice       
+
+if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then 
+    # we ARE NOT in a slurm array
+    array_id=${2}
+    job_id=${SLURM_JOB_ID}
+else 
+    # we are ARE in a slurm array 
+    array_id=${SLURM_ARRAY_TASK_ID}
+    job_id=${SLURM_ARRAY_JOB_ID}
+    size=${array_id}
+fi
+
+n_threads=${SLURM_CPUS_PER_TASK}
+
+mode=${1}
+steps=4500
+
+size=${array_id}
+
+beta0=0
+beta1=30
+
+# estimate a reasonable number of updates between measurements 
+updates_per_step=$(bc <<< "scale=0; 100000 + (5*(${size}^4))")
+
+outfile_path="data/out_${mode}_n-${size}_beta-${beta0}-${beta1}_${job_id}.root"
+
+echo "outfile path: '${outfile_path}'"
+
+cmd="./build/measure_energy --size ${size} --beta-low ${beta0} --beta-high ${beta1} -n ${steps} -j ${n_threads} --updates-per-step ${updates_per_step} --mode ${mode} ${outfile_path}"
+
+echo "cmd: '$cmd'" 
+
+time eval $cmd
