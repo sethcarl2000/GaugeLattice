@@ -224,6 +224,7 @@ int main(int argc, char* argv[])
                 //update beta
                 beta += dBeta; 
                 
+                //save this lattice in place of the old one, so we can see how much it changed from last time. 
                 old_lattice = lattice; 
 
                 if (!quiet) {
