@@ -45,8 +45,13 @@ int main(int argc, char* argv[])
         .help("Path to the output file destination. Must end with '.root'")
         .store_into(path_output);
 
+    //if enabled, then the program will not print output at each completed step / thread
     program.add_argument("-q", "--quiet")
         .help("When enabled, Reduces printing to stdout")
+        .flag(); 
+
+    program.add_argument("--scan-g0")
+        .help("when this is enabled, the temperature will be scaned linearly in g0 rather than beta")
         .flag(); 
 
     //lattice dimension
@@ -135,6 +140,8 @@ int main(int argc, char* argv[])
 
     const bool quiet = (program["--quiet"] == true); 
 
+    const bool scan_g0 = (program["--scan-g0"] == true); 
+
     //it's not strictly necessary to define this bool, but it may make the code that follows more readable
     const bool heating = !cooling; 
 
@@ -154,6 +161,14 @@ int main(int argc, char* argv[])
     const double dBeta = 
         (cooling ? +1. : -1.)*
         (beta_max - beta_min)/((double)n_steps-1); 
+
+    const double g0_max = std::sqrt(6./beta_min); 
+    const double g0_min = std::sqrt(6./beta_max); 
+
+    //change in g0 between each step (if we're scanning in this mode)
+    const double d_g0 = 
+        (cooling ? -1 : +1.)*
+        (g0_max - g0_min)/((double)n_steps-1); 
     
     const double target_prob = 0.5;
     const double theta_change = 1.15; //how much theta can be scaled by
@@ -174,7 +189,8 @@ int main(int argc, char* argv[])
             t, 
             &print_mutex, 
             &writer, 
-            quiet,
+            quiet, 
+            scan_g0, d_g0, 
             target_prob, theta_change, max_theta, beta_min, beta_max, dBeta, n_sites, lattice_size, cooling, n_steps_per_site, n_updates_per_step, n_steps
         ]{  
             //consturct a gauge lattice, and pick the appropriate dimension
@@ -204,9 +220,9 @@ int main(int argc, char* argv[])
                 lattice.SetBeta(beta); 
 
                 TStopwatch timer; 
-                double accept_prob = lattice.MetropolisUpdate(n_updates_per_step, n_steps_per_site);
-                double real_time = timer.RealTime(); 
-                double cpu_time  = timer.CpuTime(); 
+                double accept_prob  = lattice.MetropolisUpdate(n_updates_per_step, n_steps_per_site);
+                double real_time    = timer.RealTime(); 
+                double cpu_time     = timer.CpuTime(); 
 
                 //get the average distance to the 'old' 
                 double avg_norm = lattice.GetFrobDistance(old_lattice); 
@@ -221,7 +237,7 @@ int main(int argc, char* argv[])
                     accept_prob, 
                     theta, 
                     avg_norm,
-                    cpu_time/((double)n_updates_per_step*n_steps_per_site) 
+                    real_time/((double)n_updates_per_step*n_steps_per_site) 
                 ); 
 
                 //if the metropolis acceptance is above the target, we should scan the group more aggresively (increase theta)
@@ -231,8 +247,17 @@ int main(int argc, char* argv[])
                 if (theta > max_theta) theta = max_theta; 
 
                 //update beta
-                beta += dBeta; 
-                
+                if (scan_g0) {
+                    //we're scanning linearly in g0 
+                    double g0 = std::sqrt(6./beta); 
+                    g0 += d_g0; 
+                    beta = 6./(g0*g0); 
+                }
+                else {
+                    //we're scanning linearly in beta
+                    beta += dBeta; 
+                }
+
                 //save this lattice in place of the old one, so we can see how much it changed from last time. 
                 old_lattice = lattice; 
 
@@ -265,15 +290,16 @@ int main(int argc, char* argv[])
 
     auto file = new TFile(path_output.c_str(), "UPDATE"); 
 
-    WriteParameter("beta_min", beta_min); 
-    WriteParameter("beta_max", beta_max); 
-    WriteParameter("n_steps",  n_steps); 
-    WriteParameter("updates_per_step", n_updates_per_step);
-    WriteParameter("steps_per_site", n_steps_per_site);
-    WriteParameter("n_threads", n_threads); 
-    WriteParameter("lattice_size", lattice_size);
+    WriteParameter("beta_min",          beta_min); 
+    WriteParameter("beta_max",          beta_max); 
+    WriteParameter("n_steps",           n_steps); 
+    WriteParameter("updates_per_step",  n_updates_per_step);
+    WriteParameter("steps_per_site",    n_steps_per_site);
+    WriteParameter("n_threads",         n_threads); 
+    WriteParameter("lattice_size",      lattice_size);
     WriteParameter("lattice_dimension", D); 
-    WriteParameter("cooling", cooling);
+    WriteParameter("cooling",           cooling);
+    WriteParameter("linear_g_spacing",  scan_g0);
 
     printf("done.\n"); 
 
