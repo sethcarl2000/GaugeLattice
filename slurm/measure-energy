@@ -38,8 +38,9 @@ steps=${4}
 size=${array_id}
 
 
-# estimate a reasonable number of updates between measurements 
-updates_per_step=$(bc <<< "scale=0; (8*${size})^4")
+# estimate a reasonable number of updates between measurements. 
+# in this scheme, each site is considered ~ 100 times for each temperature step. 
+updates_per_step=$(bc <<< "scale=0; 100*4*(${size}^4)")
 
 outfile_path="data/out_${mode}_n-${size}_beta-${beta0}-${beta1}_${job_id}.root"
 
