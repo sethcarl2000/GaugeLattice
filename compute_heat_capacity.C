@@ -1,3 +1,6 @@
+#ifndef compute_heat_capacity_C 
+#define compute_heat_capacity_C 
+
 //ROOT
 #include <TFile.h> 
 #include <TGraph.h> 
@@ -34,7 +37,10 @@ template<typename T> T GetParameter(const std::string& name, TFile* file)
     return param->GetVal();
 }
 
-int compute_heat_capacity(std::string path_infile, std::string path_outfile)
+int compute_heat_capacity(std::string path_infile, std::string path_outfile, 
+    std::vector<double>& pts_g2,
+    std::vector<double>& pts_C,
+    std::vector<double>& pts_E)
 {
     TFile* file; 
     file = new TFile(path_infile.c_str(), "READ");  
@@ -68,35 +74,33 @@ int compute_heat_capacity(std::string path_infile, std::string path_outfile)
     const double energy_max = 1.;
     const int energy_res = 500; 
 
-    const double g0_min = std::sqrt(6./beta_max);
-    const double g0_max = std::min( std::sqrt(6./beta_min), 1. );
+    const double g0_min = 6./beta_max; //std::sqrt(6./beta_max);
+    const double g0_max = std::min( 6./beta_min, 1. ); //std::min( std::sqrt(6./beta_min), 1. );
     
-
     TH2D* hist = new TH2D(
         "hist", "data",
         n_bins, g0_min, g0_max, 
         energy_res,0.,energy_max
     );
     
-    tree->Draw("energy:sqrt(6./beta)>>hist", "", "goff");  
+    tree->Draw("energy:6./beta>>hist", "", "goff");  
     
     auto x_ax = hist->GetXaxis(); 
     auto y_ax = hist->GetYaxis(); 
 
-    std::vector<double> pts_beta, pts_C; 
-
-    pts_beta.reserve(n_bins); 
-    pts_C   .reserve(n_bins); 
+    pts_g2.clear(); pts_g2.reserve(n_bins); 
+    pts_C.clear(); pts_C.reserve(n_bins); 
+    pts_E.clear(); pts_E.reserve(n_bins); 
 
     for (int bx=1; bx<=x_ax->GetNbins(); bx++) {
 
-        double g = x_ax->GetBinCenter(bx); 
+        double g2 = x_ax->GetBinCenter(bx); 
 
         double sum_EE =0.;
-        double sum_E =0.; 
-        double sum_N =0.; 
+        double sum_E  =0.; 
+        double sum_N  =0.; 
         
-        pts_beta.push_back( g );
+        pts_g2.push_back( g2 );
 
         for (int by=1; by<y_ax->GetNbins(); by++) {
 
@@ -113,15 +117,13 @@ int compute_heat_capacity(std::string path_infile, std::string path_outfile)
         sum_E   *= 1./sum_N; 
         sum_EE  *= 1./sum_N; 
 
-        pts_C.push_back( ( sum_EE - sum_E*sum_E )/(g*g) ); 
+        pts_C.push_back( ( sum_EE - sum_E*sum_E )/(g2*g2) ); 
+        pts_E.push_back( sum_E ); 
     }
 
-    auto graph = new TGraph(n_bins, pts_beta.data(), pts_C.data()); 
-    auto c = new TCanvas; 
-    graph->SetTitle("Heat capacity;#g_{0};dE / dg_{0}"); 
-    graph->Draw(); 
-    c->SaveAs(path_outfile.c_str());
-    
+    file->Close(); 
     return 0; 
 }
+
+#endif 
 
